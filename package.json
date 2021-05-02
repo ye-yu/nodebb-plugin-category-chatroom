@@ -25,12 +25,15 @@
     "plugin",
     "chatroom"
   ],
-  "license": "GPLv3",
+  "license": "GPL-3.0-or-later",
   "nbbpm": {
     "compatibility": "^1.17.0"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ye-yu/nodebb-plugin-category-chatroom.git"
+  },
+  "dependencies": {
+    "@toverux/expresse": "^2.4.0"
   }
 }
