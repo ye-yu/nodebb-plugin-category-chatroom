@@ -1,0 +1,36 @@
+{
+  "name": "nodebb-plugin-category-chatroom",
+  "version": "1.0.0-alpha.1",
+  "main": "library.js",
+  "author": {
+    "name": "ye-yu",
+    "email": "rafolwen98@gmail.com"
+  },
+  "bugs": {
+    "url": "https://github.com/ye-yu/nodebb-plugin-category-chatroom/issues"
+  },
+  "bundleDependencies": false,
+  "contributors": [
+    {
+      "name": "Raflie Zainuddin",
+      "email": "rafolwen98@gmail.com",
+      "url": "https://github.com/ye-yu/nodebb-plugin-category-chatroom"
+    }
+  ],
+  "deprecated": false,
+  "description": "NodeBB Chatroom-based Category",
+  "homepage": "https://github.com/ye-yu/nodebb-plugin-category-chatroom#readme",
+  "keywords": [
+    "nodebb",
+    "plugin",
+    "chatroom"
+  ],
+  "license": "GPLv3",
+  "nbbpm": {
+    "compatibility": "^1.17.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ye-yu/nodebb-plugin-category-chatroom.git"
+  }
+}

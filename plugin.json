@@ -1,0 +1,15 @@
+{
+	"id": "nodebb-plugin-category-chatroom",
+	"name": "NodeBB Category-based Chatroom",
+	"description": "NodeBB Plugin that allows users to chat in a category-based chatroom.",
+	"url": "https://github.com/ye-yu/nodebb-plugin-category-chatroom.git",
+	"library": "./library.js",
+	"hooks": [
+		{ "hook": "static:app.load", "method": "initRoute" },
+		{ "hook": "static:script.init", "method": "initScript" }
+	],
+	"templates": "./templates",
+	"acpScripts": [
+		"static/lib/admin.js"
+	]
+}
