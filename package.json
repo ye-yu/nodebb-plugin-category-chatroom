@@ -18,7 +18,7 @@
     }
   ],
   "deprecated": false,
-  "description": "NodeBB Chatroom-based Category",
+  "description": "NodeBB Category-based Chatroom",
   "homepage": "https://github.com/ye-yu/nodebb-plugin-category-chatroom#readme",
   "keywords": [
     "nodebb",
