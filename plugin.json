@@ -6,7 +6,9 @@
 	"library": "./library.js",
 	"hooks": [
 		{ "hook": "static:app.load", "method": "initRoute" },
-		{ "hook": "static:script.init", "method": "initScript" }
+		{ "hook": "action:script.load", "method": "initScript" },
+		{ "hook": "filter:widgets.getWidgets", "method": "defineWidget" },
+		{ "hook": "filter:widget.render:category_chatbot", "method": "renderWidget"}
 	],
 	"templates": "./templates",
 	"acpScripts": [

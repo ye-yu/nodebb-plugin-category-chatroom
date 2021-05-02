@@ -1,0 +1,13 @@
+<button class="btn btn-primary" id="category-chatroom-button">Enter Chatroom</button>
+<script>
+  (function(window, document){
+    // add chatroom event
+    var paths = window.location.pathname.split("/")
+    var lastPath = paths[paths.length-1]
+    document.getElementById("category-chatroom-button").addEventListener("click", function(event) {
+      if (event.button === 2) return
+      event.preventDefault()
+      console.log("Invoking chatroom for " + lastPath)
+    }, false)
+  })(window, document)
+</script>
