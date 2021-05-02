@@ -1,13 +1,183 @@
+<style>
+  .chatroom-container {
+    position: fixed;
+    width: 100%;
+    max-width: 400px;
+    height: 100vh;
+    top: 0;
+    border-left: 1px solid #0004;
+    right: -400px;
+    transition: all 200ms;
+    z-index: 1000;
+    background-color: white;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .chatroom-container.chat-room-show {
+    right: 0;
+  }
+
+  .chatroom-header {
+    display: flex;
+    align-items: center;
+    padding-top: 15px;
+    padding-bottom: 10px;
+    padding: 15px 15px 10px;
+    border-bottom: 1px solid #0002;
+  }
+
+  .chatroom-header-topic {
+    margin-right: auto;
+  }
+
+  .chatroom-body {
+    flex: 1;
+    overflow-y: scroll;
+  }
+
+  .chatroom-footer {
+    height: min-content;
+    border-top: 1px solid #0002;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .chatroom-input {
+    flex: 1 1 80%;
+    overflow-y: auto;
+    max-height: 30vh;
+    padding: 0 15px;
+  }
+
+  .chatroom-input:focus {
+    outline: none;
+  }
+
+
+  .chatroom-input[value=""]::before {
+    content: "Send message";
+    position: absolute;
+    color: #0004;
+  }
+
+
+  .chatroom-send {
+    flex: 1 1 20%;
+  }
+
+  .chatroom-help {
+    display: flex;
+    font-size: 1.1rem;
+    margin: 0.3rem 1.5rem;
+    color: #0006;
+  }
+
+  .chatroom-help input {
+    margin: 0;
+  }
+
+  .chatroom-help label {
+    margin-left: 0.3rem;
+  }
+
+</style>
 <button class="btn btn-primary" id="category-chatroom-button">Enter Chatroom</button>
+<div class="chatroom-container">
+  <div class="header chatroom-header">
+    <div class="chatroom-header-topic">Chat about <b id="chatroom-topic"></b></div>
+    <button class="btn btn-sm" id="chatroom-discard"><i class="fa fa-times"></i></button>
+  </div>
+  <div class="chatroom-body"></div>
+  <div class="chatroom-footer">
+    <div class="chatroom-input" contenteditable="true" value=""></div>
+    <button class="btn btn-primary chatroom-send">Send</button>
+    <div class="chatroom-help">
+      <input type="checkbox" name="enter-to-send" id="enter-to-send" />
+      <label for="enter-to-send">Enter to Send</label>
+    </div>
+  </div>
+</div>
 <script>
   (function(window, document){
+
+    function applyToChatroomContainer(op) {
+      var chatroomContainers = document.getElementsByClassName("chatroom-container");
+      var ops = []
+      for(var i = 0; i < chatroomContainers.length; i++) {
+        var container = chatroomContainers[i];
+        ops.push(op(container));
+      }
+      return ops
+    }
+
+    // get header height
+    var headers = document.getElementsByClassName("navbar-header");
+    var headerHeight = headers.length > 0 ? headers[0].clientHeight : 50;
+    console.log("Applying chatroom height of " + headerHeight);
+    applyToChatroomContainer(function(container) {
+      container.style.paddingTop = headerHeight + "px";
+    });
+
     // add chatroom event
-    var paths = window.location.pathname.split("/")
-    var lastPath = paths[paths.length-1]
-    document.getElementById("category-chatroom-button").addEventListener("click", function(event) {
-      if (event.button === 2) return
-      event.preventDefault()
-      console.log("Invoking chatroom for " + lastPath)
-    }, false)
-  })(window, document)
+    function onChatButtonClick(event) {
+      if (event.button === 2) return;
+      event.preventDefault();
+
+      var shouldReload = applyToChatroomContainer(function(container) {
+        container.className = container.className === "chatroom-container" ? "chatroom-container chat-room-show" : "chatroom-container";
+        return container.className === "chatroom-container chat-room-show";
+      })[0]
+
+      if (shouldReload) {
+        var chatTopic = document.title.split("|")[0].trim();
+        document.getElementById("chatroom-topic").innerText = chatTopic;
+        console.log("Starting chatroom session for " + document.title);
+      } else {
+        console.log("Ending chatroom session for " + document.title);
+      }
+    }
+    var paths = window.location.pathname.split("/");
+    var lastPath = paths[paths.length-1];
+    document.getElementById("category-chatroom-button").addEventListener("click", onChatButtonClick, false);
+    document.getElementById("chatroom-discard").addEventListener("click", onChatButtonClick, false);
+
+    // bind enter to send
+    var enterToSend = !!localStorage.getItem("enter to send");
+    document.getElementById("enter-to-send").checked = enterToSend;
+    document.getElementById("enter-to-send").addEventListener("change", function(event) {
+      enterToSend = document.getElementById("enter-to-send").checked;
+      return enterToSend ? localStorage.setItem("enter to send", "true") : localStorage.removeItem("enter to send");
+    });
+
+    // bind input
+    var chatroomInputs = document.getElementsByClassName("chatroom-input");
+    var cancelEnterKey = false;
+    for(var n = 0; n < chatroomInputs.length; n++) {
+      var inputField = chatroomInputs[n];
+
+      inputField.addEventListener("keydown", function(event) {
+        inputField.setAttribute("value", " ");
+        if (event.key === "Enter" && !event.shiftKey && enterToSend) {
+          event.preventDefault();
+          cancelEnterKey = true;
+          var message = inputField.innerText.trim();
+          console.log("Sending message:", message);
+          inputField.innerText = "";
+          inputField.setAttribute("value", "");
+        }
+      }, false);
+
+      inputField.addEventListener("keyup", function(event) {
+        if (event.key === "Enter" && cancelEnterKey) {
+          cancelEnterKey = false;
+          event.preventDefault();
+          return;
+        }
+
+        inputField.setAttribute("value", inputField.innerText.trim());
+      }, false);
+    }
+  })(window, document);
 </script>
