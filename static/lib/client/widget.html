@@ -99,6 +99,33 @@
 <script>
   (function(window, document){
 
+    // >>> Event Listeners >>>
+    function logError(err) {
+      if (err) console.error(err);
+    }
+
+    function unbindEvents() {
+      socket.removeListener("event:category-chatroom.pong");
+    }
+
+    function bindEvents() {
+      socket.on("event:category-chatroom.pong", function(data) {
+        console.log("Category chatroom pong:", data);
+      },logError);
+    }
+
+    function forceRebindEvents() {
+      unbindEvents();
+      bindEvents();
+    }
+
+    function initChat(chat_id) {
+      socket.emit("plugins.categoryChatroom.init",{
+        chat_id:chat_id,
+      },logError);
+    }
+    // <<< Event Listeners <<<
+
     function applyToChatroomContainer(op) {
       var chatroomContainers = document.getElementsByClassName("chatroom-container");
       var ops = []
@@ -128,15 +155,18 @@
       })[0]
 
       if (shouldReload) {
+        var paths = window.location.pathname.split("/");
+        var lastPath = paths[paths.length-1];
         var chatTopic = document.title.split("|")[0].trim();
         document.getElementById("chatroom-topic").innerText = chatTopic;
         console.log("Starting chatroom session for " + document.title);
+        forceRebindEvents();
+        initChat(lastPath);
       } else {
         console.log("Ending chatroom session for " + document.title);
       }
     }
-    var paths = window.location.pathname.split("/");
-    var lastPath = paths[paths.length-1];
+
     document.getElementById("category-chatroom-button").addEventListener("click", onChatButtonClick, false);
     document.getElementById("chatroom-discard").addEventListener("click", onChatButtonClick, false);
 
