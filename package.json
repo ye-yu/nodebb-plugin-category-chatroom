@@ -34,6 +34,6 @@
     "url": "git+https://github.com/ye-yu/nodebb-plugin-category-chatroom.git"
   },
   "dependencies": {
-    "@toverux/expresse": "^2.4.0"
+    "joi": "^17.4.0"
   }
 }
