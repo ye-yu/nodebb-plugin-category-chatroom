@@ -38,7 +38,8 @@
 		message: Joi.object({
 			chat_id: Joi.string().min(1).required(),
 			message: Joi.string().min(1).required(),
-		})
+		}),
+		next: Joi.number().required()
 	}
 
 	var SocketPlugins = require.main.require('./src/socket.io/plugins');
@@ -64,11 +65,34 @@
 			message: `Retrieving ${limit} rows of chat history of ${chat_id}`
 		})
 
-		const history = await Messaging.getMessages(chat_id, limit)
+		const history = await Messaging.getLastMessages(chat_id, limit)
 		
 		socket.emit("event:category-chatroom.history", {
 			chat_id,
-			history
+			history,
+			back_track: true
+		})
+
+		return data
+	};
+
+	SocketPlugins.categoryChatroom.next = async function(socket, data) {
+		await validateSocket(socket)
+		schema.init.validate(data)
+		const { chat_id, from } = data
+		schema.next.validate(from)
+		const fetchFrom = +from
+
+		socket.emit("event:category-chatroom.pong", {
+			message: `Retrieving a chats from row ${fetchFrom} of chat history of ${chat_id}`
+		})
+
+		const history = await Messaging.getMessages(chat_id, from)
+		
+		socket.emit("event:category-chatroom.history", {
+			chat_id,
+			history,
+			back_track: false
 		})
 
 		return data
