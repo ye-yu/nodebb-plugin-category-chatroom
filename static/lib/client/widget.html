@@ -100,7 +100,8 @@
   (function(window, document){
 
     // >>> Event Listeners >>>
-    var lastHistory = undefined
+    var lastHistory = undefined;
+    var chatPolling = undefined;
     function logError(err) {
       if (err) console.error(err);
     }
@@ -109,7 +110,8 @@
       socket.removeListener("event:category-chatroom.pong");
       socket.removeListener("event:category-chatroom.history");
       socket.removeListener("event:category-chatroom.ack");
-      lastHistory = undefined
+      lastHistory = undefined;
+      clearInterval(chatPolling);
     }
 
     function bindEvents() {
@@ -123,15 +125,26 @@
         for(let i = 0; i < history.length; i++) {
           if (!history[i]) continue;
           filteredHistory.push(history[i]);
-          lastFilteredHistory = history[i].order
+          lastFilteredHistory = history[i].order + 1;
         }
-        if (!data.back_track || lastHistory === undefined) lastHistory = lastFilteredHistory;
+        if (!data.back_track || lastHistory === undefined) lastHistory = lastFilteredHistory || lastHistory;
 
         console.log("Category chatroom history:", {
           history: filteredHistory,
           last_history: lastHistory
         });
 
+        if (chatPolling) return; // chat polling is already on going
+        // if(true)return; // dev mode
+        chatPolling = setInterval(function(){
+          console.log("Polling messages from:", lastHistory);
+          var paths = window.location.pathname.split("/");
+          var chat_id = paths[paths.length-1];
+          socket.emit("plugins.categoryChatroom.next", {
+            chat_id: chat_id,
+            from: lastHistory
+          });
+        }, 800);
       },logError);
       socket.on("event:category-chatroom.ack", function(data) {
         console.log("Category chatroom ack:", data);
@@ -206,6 +219,7 @@
       } else {
         $(".chatroom-body").off("click");
         console.log("Ending chatroom session for " + document.title);
+        unbindEvents();
       }
     }
 
