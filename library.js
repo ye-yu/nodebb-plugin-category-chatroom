@@ -8,9 +8,26 @@
 	var fs = require("fs")
 	var path = require("path")
 	var Joi = require("joi")
+
+	// dev mode
+	var log = true
+
+	var deserializeObj = function(obj) {
+		return obj instanceof Set ? `${obj.toString()} {${[...obj].join(",")}}`
+		: obj instanceof Array ? `${obj.toString()} [${[...obj].join(",")}]`
+		: obj instanceof Object ? `${obj.toString()} ${JSON.stringify(obj, null, 2)}`
+		: obj.toString()
+	}
+
+	var logging = function() {
+		if (!log) return
+		var logOutput = [...arguments].map(deserializeObj).join(" ")
+		winston.verbose("[plugin/category-chatroom] " + logOutput)
+	}
+
 	var Messaging = require("./lib/messaging").init({
 		db,
-		logging: winston.verbose
+		logging
 	})
 
 	var schema = {
@@ -27,14 +44,14 @@
 	var SocketPlugins = require.main.require('./src/socket.io/plugins');
 	SocketPlugins.categoryChatroom = {};
 	SocketPlugins.categoryChatroom.ping = function(socket, data, callback) { 
-		winston.verbose("[plugin/category-chatroom] Got ping:", data)
+		logging("Got ping:", data)
 		socket.emit("event:category-chatroom.pong", data)
 		callback(null, data)
 	};
 
 	var validateSocket = async function(socket) {
 		const { uid } = socket
-		winston.verbose("[plugin/category-chatroom] Got init from uid:" + uid)
+		logging("Got init from uid:" + uid)
 		if (!await User.exists(uid)) throw new Error(`${uid} is not a user!`)
 	}
 
@@ -60,11 +77,20 @@
 	SocketPlugins.categoryChatroom.message = async function(socket, data) {
 		await validateSocket(socket)
 		schema.message.validate(data)
-		const { chat_id, message } = data
-		const user = await User.getUsersFields(socket.uid, ['uid', 'username', 'picture']);
-		const now = Date.now()
-		winston.verbose("Got user info of:", {
-			user, now
+		const { chat_id, message, ack_id } = data
+		const user = await User.getUserFields(socket.uid, ['uid', 'username', 'picture', 'status', 'lastonline', 'groupTitle']);
+		const isAdmin = await User.isAdministrator(socket.uid)
+		const isGlobalMod = await User.isGlobalModerator(socket.uid)
+		logging("Got message of:", {
+			chat_id, message
+		})
+		const status = await Messaging.sendMessage(chat_id, {
+			...user,
+			isAdmin, isGlobalMod
+		}, message, socket.ip)
+		socket.emit("event:category-chatroom.ack", {
+			at: status.data.at,
+			ack_id
 		})
 	}
 
@@ -93,18 +119,18 @@
 	};
 
 	LB.initRoute = function({ router }, callback) {
-		winston.verbose("[plugin/category-chatroom] Invoked router init")
+    logging("Invoked router init")
 		router.use("/category-chatroom", express.static('assets'))
 		callback();
 	};
 
 	LB.initScript = function({ res }, callback) {
-		winston.verbose("[plugin/category-chatroom] Invoked initScript, data:", data)
+    logging("Invoked initScript, data:", data)
 		callback(null, data);
 	};
 
 	LB.defineWidget = function(data, callback) {
-		winston.verbose("[plugin/category-chatroom] Requested plugin widget, widget body: " + widget)
+    logging("Requested plugin widget, widget body: " + widget)
 		data.push({
 			widget: "category_chatbot",
 			name: "Category Chatbot",

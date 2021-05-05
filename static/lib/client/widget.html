@@ -106,11 +106,19 @@
 
     function unbindEvents() {
       socket.removeListener("event:category-chatroom.pong");
+      socket.removeListener("event:category-chatroom.history");
+      socket.removeListener("event:category-chatroom.ack");
     }
 
     function bindEvents() {
       socket.on("event:category-chatroom.pong", function(data) {
         console.log("Category chatroom pong:", data);
+      },logError);
+      socket.on("event:category-chatroom.history", function(data) {
+        console.log("Category chatroom history:", data);
+      },logError);
+      socket.on("event:category-chatroom.ack", function(data) {
+        console.log("Category chatroom ack:", data);
       },logError);
     }
 
@@ -119,9 +127,24 @@
       bindEvents();
     }
 
-    function initChat(chat_id) {
+    function initChat() {
+      var paths = window.location.pathname.split("/");
+      var chat_id = paths[paths.length-1];
       socket.emit("plugins.categoryChatroom.init",{
         chat_id:chat_id,
+      },logError);
+    }
+
+    function sendMessage(message) {
+      var array = new Uint8Array(4);
+      crypto.getRandomValues(array)
+      var ack_id = btoa(String.fromCharCode.apply(null, array)).replace(/=/g, '');
+      var paths = window.location.pathname.split("/");
+      var chat_id = paths[paths.length-1];
+      socket.emit("plugins.categoryChatroom.message",{
+        chat_id:chat_id,
+        message:message,
+        ack_id: ack_id
       },logError);
     }
     // <<< Event Listeners <<<
@@ -155,13 +178,11 @@
       })[0]
 
       if (shouldReload) {
-        var paths = window.location.pathname.split("/");
-        var lastPath = paths[paths.length-1];
         var chatTopic = document.title.split("|")[0].trim();
         document.getElementById("chatroom-topic").innerText = chatTopic;
         console.log("Starting chatroom session for " + document.title);
         forceRebindEvents();
-        initChat(lastPath);
+        initChat();
       } else {
         console.log("Ending chatroom session for " + document.title);
       }
@@ -191,6 +212,7 @@
           cancelEnterKey = true;
           var message = inputField.innerText.trim();
           console.log("Sending message:", message);
+          sendMessage(message);
           inputField.innerText = "";
           inputField.setAttribute("value", "");
         }
