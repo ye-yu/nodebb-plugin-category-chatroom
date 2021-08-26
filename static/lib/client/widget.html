@@ -80,13 +80,78 @@
   }
 
 </style>
+
+<style>
+  /**
+  Customizable style!
+  */
+
+  .chatroom-chat-container {
+    display: flex;
+    padding: 10px 10px 10px 70px;
+    margin-top: 0.3rem;
+    margin-bottom: 0.3rem;
+    position: relative;
+    min-height: 3rem;
+    flex-wrap: wrap;
+  }
+
+  .chatroom-chat-is-online {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 5px;
+    background-color: lime;
+    left: 2rem;
+    top: 2rem;
+  }
+
+  .chatroom-chat-head {
+    position: absolute;
+    left: 2rem;
+    top: 1.8rem;
+    z-index: -1;
+  }
+
+  .chatroom-chat-head-img {
+    width: 30px;
+    height: 30px;
+    border-radius: 30px;
+  }
+
+  .chatroom-chat-head-text {
+    width: 30px;
+    height: 30px;
+    border-radius: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+  }
+
+  .chatroom-chat-message {
+    flex: 1 1 100%;
+    padding-top: 0.3rem;
+    font-size: 1.3rem;
+  }
+
+  .chatroom-chat-time {
+    margin-left: auto;
+    color: gray;
+  }
+
+  .chatroom-chat-username {
+    font-weight: bold;
+    color: cadetblue;
+  }
+</style>
 <button class="btn btn-primary" id="category-chatroom-button">Enter Chatroom</button>
 <div class="chatroom-container">
   <div class="header chatroom-header">
     <div class="chatroom-header-topic">Chat about <b id="chatroom-topic"></b></div>
     <button class="btn btn-sm" id="chatroom-discard"><i class="fa fa-times"></i></button>
   </div>
-  <div class="chatroom-body"></div>
+  <div class="chatroom-body" id="chatroom-body"></div>
   <div class="chatroom-footer">
     <div class="chatroom-input" contenteditable="true" value=""></div>
     <button class="btn btn-primary chatroom-send">Send</button>
@@ -99,19 +164,97 @@
 <script>
   (function(window, document){
 
+    // >>> Chat renderers >>>
+    var enableAutoScrolling = true;
+    var tolerance = 0.5;
+    document.getElementById("chatroom-body").onscroll = function() {
+      enableAutoScrolling = $("#chatroom-body").scrollTop() > ($("#chatroom-body").prop("scrollHeight") - $("#chatroom-body").height() - tolerance)
+    };
+
+    function scrollDownChat() {
+      $(".chatroom-body").animate({
+        scrollTop: $("#chatroom-body").prop("scrollHeight") - $("#chatroom-body").height() + tolerance
+      }, 500);
+    }
+
+    function autoScrollDownChat() {
+      if (enableAutoScrolling) scrollDownChat();
+    }
+
+    function pushChatBubble(item) {
+      var chatBody = $(".chatroom-body");
+      var chatItem = $("<div></div>").addClass("chatroom-chat-container");
+      if (item.from_system) chatItem.addClass("chatroom-chat-system");
+      else if (item.user.isAdmin) chatItem.addClass("chatroom-chat-admin");
+      else if (item.user.isGlobalMod) chatItem.addClass("chatroom-chat-global-mod");
+      else if (item.user.isModerator) chatItem.addClass("chatroom-chat-moderator");
+      chatBody.append(chatItem);
+
+      if (item.user.status === "online") {
+        var isOnline = $("<div></div>").addClass("chatroom-chat-is-online");
+        chatItem.append(isOnline);
+      }
+
+      var chatHead = $("<div></div>").addClass("chatroom-chat-head");
+      if (item.user.uploadedpicture || item.user.picture) {
+        var img = $("<img />");
+        var src = item.user.uploadedpicture || item.user.picture;
+        img.addClass("chatroom-chat-head-img");
+        img.attr("src", src);
+        chatHead.append(img);
+      } else {
+        var img = $("<div></div>").addClass("chatroom-chat-head-text");
+        img.css("background-color", item.user["icon:bgColor"] || "#3e4e4e");
+        var text = $("<span></span>").addClass("chatroom-chat-head-text-item");
+        text.text(item.user["icon:text"] || "?");
+        img.append(text);
+        chatHead.append(img);
+      }
+      chatItem.append(chatHead);
+
+      var username = $("<a></a>").addClass("chatroom-chat-username");
+      username.attr("href", "/user/" + item.user.username);
+      username.text(item.user.username);
+      username.click(() => clearInterval(chatPolling));
+      chatItem.append(username);
+
+      var time = $("<div></div>").addClass("chatroom-chat-time");
+      time.text(new Date(item.at).toLocaleString());
+      chatItem.append(time);
+
+      var message = $("<div></div>").addClass("chatroom-chat-message");
+      message.text(item.message);
+      chatItem.append(message);
+    }
+
+    function renderHistory(history, backtrack) {
+      for(let i = 0; i < history.length; i++) pushChatBubble(history[i]);
+      autoScrollDownChat();
+    }
+    // <<< Chat renderers <<<
+
     // >>> Event Listeners >>>
     var lastHistory = undefined;
     var chatPolling = undefined;
+    var pollingAck = undefined;
     function logError(err) {
       if (err) console.error(err);
+    }
+
+    function createAckId() {
+      var array = new Uint8Array(4);
+      crypto.getRandomValues(array)
+      return btoa(String.fromCharCode.apply(null, array)).replace(/=/g, '');
     }
 
     function unbindEvents() {
       socket.removeListener("event:category-chatroom.pong");
       socket.removeListener("event:category-chatroom.history");
       socket.removeListener("event:category-chatroom.ack");
-      lastHistory = undefined;
       clearInterval(chatPolling);
+      lastHistory = undefined;
+      chatPolling = undefined;
+      $(".chatroom-body").empty();
     }
 
     function bindEvents() {
@@ -119,7 +262,8 @@
         console.log("Category chatroom pong:", data);
       },logError);
       socket.on("event:category-chatroom.history", function(data) {
-        var { history } = data;
+        var { history, ack_id } = data;
+        if (ack_id !== pollingAck) return;
         var filteredHistory = [];
         var lastFilteredHistory = undefined;
         for(let i = 0; i < history.length; i++) {
@@ -128,27 +272,25 @@
           lastFilteredHistory = history[i].order + 1;
         }
         if (!data.back_track || lastHistory === undefined) lastHistory = lastFilteredHistory || lastHistory;
-
-        console.log("Category chatroom history:", {
-          history: filteredHistory,
-          last_history: lastHistory
-        });
-
-        if (chatPolling) return; // chat polling is already on going
-        // if(true)return; // dev mode
-        chatPolling = setInterval(function(){
-          console.log("Polling messages from:", lastHistory);
-          var paths = window.location.pathname.split("/");
-          var chat_id = paths[paths.length-1];
-          socket.emit("plugins.categoryChatroom.next", {
-            chat_id: chat_id,
-            from: lastHistory
-          });
-        }, 800);
+        if (lastHistory === undefined && !filteredHistory.length) lastHistory = 1
+        renderHistory(filteredHistory);
       },logError);
       socket.on("event:category-chatroom.ack", function(data) {
         console.log("Category chatroom ack:", data);
       },logError);
+
+      if (chatPolling) return; // chat polling is already on going
+      // if(true)return; // dev mode
+      chatPolling = setInterval(function(){
+        var paths = window.location.pathname.split("/");
+        var chat_id = paths[paths.length-1];
+        pollingAck = createAckId();
+        socket.emit("plugins.categoryChatroom.next", {
+          chat_id: chat_id,
+          from: lastHistory,
+          ack_id: pollingAck
+        });
+      }, 800);
     }
 
     function forceRebindEvents() {
@@ -159,18 +301,16 @@
     function initChat() {
       var paths = window.location.pathname.split("/");
       var chat_id = paths[paths.length-1];
+      pollingAck = createAckId();
       socket.emit("plugins.categoryChatroom.init",{
         chat_id:chat_id,
+        ack_id: pollingAck
       },logError);
-      $(".chatroom-body").animate({
-        scrollTop: $(".chatroom-body").height()
-      }, 500);
+      scrollDownChat();
     }
 
     function sendMessage(message) {
-      var array = new Uint8Array(4);
-      crypto.getRandomValues(array)
-      var ack_id = btoa(String.fromCharCode.apply(null, array)).replace(/=/g, '');
+      var ack_id = createAckId();
       var paths = window.location.pathname.split("/");
       var chat_id = paths[paths.length-1];
       socket.emit("plugins.categoryChatroom.message",{
@@ -194,7 +334,6 @@
     // get header height
     var headers = document.getElementsByClassName("navbar-header");
     var headerHeight = headers.length > 0 ? headers[0].clientHeight : 50;
-    console.log("Applying chatroom height of " + headerHeight);
     applyToChatroomContainer(function(container) {
       container.style.paddingTop = headerHeight + "px";
     });
@@ -212,13 +351,11 @@
       if (shouldReload) {
         var chatTopic = document.title.split("|")[0].trim();
         document.getElementById("chatroom-topic").innerText = chatTopic;
-        console.log("Starting chatroom session for " + document.title);
         $(".chatroom-body").click(() => $(".chatroom-input").focus());
         forceRebindEvents();
         initChat();
       } else {
         $(".chatroom-body").off("click");
-        console.log("Ending chatroom session for " + document.title);
         unbindEvents();
       }
     }
@@ -246,7 +383,6 @@
           event.preventDefault();
           cancelEnterKey = true;
           var message = inputField.innerText.trim();
-          console.log("Sending message:", message);
           sendMessage(message);
           inputField.innerText = "";
           inputField.setAttribute("value", "");
@@ -257,6 +393,8 @@
         if (event.key === "Enter" && cancelEnterKey) {
           cancelEnterKey = false;
           event.preventDefault();
+          enableAutoScrolling = true;
+          scrollDownChat();
           return;
         }
 

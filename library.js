@@ -33,13 +33,19 @@
 	var schema = {
 		init: Joi.object({
 			chat_id: Joi.string().min(1).required(),
-			limit: Joi.number().min(1)
+			ack_id: Joi.string().min(1).required(),
+			limit: Joi.number().min(1),
 		}),
 		message: Joi.object({
+			ack_id: Joi.string().min(1).required(),
 			chat_id: Joi.string().min(1).required(),
 			message: Joi.string().min(1).required(),
 		}),
-		next: Joi.number().required()
+		next: Joi.object({
+			ack_id: Joi.string().min(1).required(),
+			chat_id: Joi.string().min(1).required(),
+			from: Joi.number().min(1).required(),
+		})
 	}
 
 	var SocketPlugins = require.main.require('./src/socket.io/plugins');
@@ -59,15 +65,11 @@
 	SocketPlugins.categoryChatroom.init = async function(socket, data) {
 		await validateSocket(socket)
 		schema.init.validate(data)
-		const { chat_id, limit = 50 } = data
-
-		socket.emit("event:category-chatroom.pong", {
-			message: `Retrieving ${limit} rows of chat history of ${chat_id}`
-		})
+		const { chat_id, limit = 50, ack_id } = data
 
 		const history = await Messaging.getLastMessages(chat_id, limit)
-		
 		socket.emit("event:category-chatroom.history", {
+			ack_id,
 			chat_id,
 			history,
 			back_track: true
@@ -79,17 +81,12 @@
 	SocketPlugins.categoryChatroom.next = async function(socket, data) {
 		await validateSocket(socket)
 		schema.init.validate(data)
-		const { chat_id, from } = data
-		schema.next.validate(from)
-		const fetchFrom = +from
-
-		socket.emit("event:category-chatroom.pong", {
-			message: `Retrieving a chats from row ${fetchFrom} of chat history of ${chat_id}`
-		})
-
-		const history = await Messaging.getMessages(chat_id, from)
+		const { chat_id, from, ack_id } = data
+		schema.next.validate(data)
+		const history = await Messaging.getMessages(chat_id, +from)
 		
 		socket.emit("event:category-chatroom.history", {
+			ack_id,
 			chat_id,
 			history,
 			back_track: false
